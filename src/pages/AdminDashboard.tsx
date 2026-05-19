@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { Coffee, Home, Settings, Package, MessageSquare, LayoutDashboard, LogOut, Plus, Edit, Trash2, X, Loader2, Save, ShoppingCart } from 'lucide-react'
+import { Coffee, Home, Settings, Package, MessageSquare, LayoutDashboard, LogOut, Plus, Edit, Trash2, X, Loader2, Save, ShoppingCart, Menu as MenuIcon } from 'lucide-react'
 import { supabase, type MenuItem } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -34,6 +34,7 @@ const defaultSettings: SiteSettings = {
 export default function AdminDashboard() {
   const { user, loading: authLoading, signOut } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [products, setProducts] = useState<MenuItem[]>([])
   const [orders, setOrders] = useState<OnlineOrder[]>([])
   const [contacts, setContacts] = useState<ContactSubmission[]>([])
@@ -161,7 +162,7 @@ export default function AdminDashboard() {
 
   const SidebarItem = ({ icon: Icon, label, tab }: { icon: React.ComponentType<{ size?: number }>; label: string; tab: TabType }) => (
     <button
-      onClick={() => setActiveTab(tab)}
+      onClick={() => { setActiveTab(tab); setSidebarOpen(false) }}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
         activeTab === tab ? 'bg-terracotta text-cream font-medium' : 'text-espresso/60 hover:bg-stone-100 hover:text-espresso'
       }`}
@@ -173,13 +174,17 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-stone-50 flex">
+      {/* Mobile overlay */}
+      {sidebarOpen && <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-stone-200 flex flex-col fixed h-full">
+      <aside className={`fixed h-full z-50 w-64 bg-white border-r border-stone-200 flex flex-col transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 flex items-center gap-2 border-b border-stone-100">
           <Coffee size={24} className="text-terracotta" />
           <span className="font-serif text-xl font-bold text-espresso">Admin</span>
+          <button onClick={() => setSidebarOpen(false)} className="ml-auto lg:hidden text-espresso/40 hover:text-espresso"><X size={20} /></button>
         </div>
-        <div className="flex-1 p-4 space-y-2">
+        <div className="flex-1 p-4 space-y-2 overflow-y-auto">
           <SidebarItem icon={LayoutDashboard} label="Dasbor" tab="dashboard" />
           <SidebarItem icon={Package} label="Produk" tab="menu" />
           <SidebarItem icon={ShoppingCart} label="Pesanan Online" tab="orders" />
@@ -197,9 +202,12 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 ml-64 p-8">
-        <header className="mb-8">
-          <h1 className="text-2xl font-serif font-bold text-espresso">
+      <main className="flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8 min-w-0">
+        <header className="mb-6 sm:mb-8 flex items-center gap-3">
+          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 -ml-2 text-espresso hover:bg-stone-100 rounded-lg">
+            <MenuIcon size={22} />
+          </button>
+          <h1 className="text-xl sm:text-2xl font-serif font-bold text-espresso">
             {activeTab === 'dashboard' ? 'Dasbor' : activeTab === 'menu' ? 'Manajemen Produk' : activeTab === 'orders' ? 'Pesanan Online' : activeTab === 'contacts' ? 'Pesan Pelanggan' : 'Pengaturan'}
           </h1>
         </header>
@@ -210,7 +218,7 @@ export default function AdminDashboard() {
           <>
             {/* Dashboard */}
             {activeTab === 'dashboard' && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
                 <StatCard icon={Package} label="Total Produk" value={products.length} />
                 <StatCard icon={ShoppingCart} label="Pesanan Online" value={orders.length} />
                 <StatCard icon={MessageSquare} label="Pesan Masuk" value={contacts.length} />
@@ -249,50 +257,84 @@ export default function AdminDashboard() {
                 )}
 
                 <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
-                  <div className="p-5 border-b border-stone-100 flex justify-between items-center">
+                  <div className="p-4 sm:p-5 border-b border-stone-100 flex justify-between items-center">
                     <h2 className="font-semibold text-espresso text-sm">Daftar Produk ({products.length})</h2>
                     <button onClick={openAddForm} className="flex items-center gap-1.5 px-3 py-1.5 bg-terracotta text-cream text-xs font-medium rounded-lg hover:bg-espresso transition-colors">
                       <Plus size={14} /> Tambah
                     </button>
                   </div>
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-stone-50 text-xs uppercase text-espresso/50">
-                      <tr>
-                        <th className="px-6 py-4">Produk</th>
-                        <th className="px-6 py-4">Kategori</th>
-                        <th className="px-6 py-4">Harga</th>
-                        <th className="px-6 py-4">Stok</th>
-                        <th className="px-6 py-4">Status</th>
-                        <th className="px-6 py-4 text-right">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-100">
-                      {products.length === 0 ? (
-                        <tr><td colSpan={6} className="text-center py-8 text-espresso/40">Belum ada produk.</td></tr>
-                      ) : products.map(item => (
-                        <tr key={item.id} className={`hover:bg-stone-50/50 ${!item.is_active ? 'opacity-50' : ''}`}>
-                          <td className="px-6 py-4 font-medium text-espresso">
-                            <p>{item.name}</p>
+
+                  {/* Desktop table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-stone-50 text-xs uppercase text-espresso/50">
+                        <tr>
+                          <th className="px-6 py-4">Produk</th>
+                          <th className="px-6 py-4">Kategori</th>
+                          <th className="px-6 py-4">Harga</th>
+                          <th className="px-6 py-4">Stok</th>
+                          <th className="px-6 py-4">Status</th>
+                          <th className="px-6 py-4 text-right">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-100">
+                        {products.length === 0 ? (
+                          <tr><td colSpan={6} className="text-center py-8 text-espresso/40">Belum ada produk.</td></tr>
+                        ) : products.map(item => (
+                          <tr key={item.id} className={`hover:bg-stone-50/50 ${!item.is_active ? 'opacity-50' : ''}`}>
+                            <td className="px-6 py-4 font-medium text-espresso">
+                              <p>{item.name}</p>
+                              {item.variant && <p className="text-xs text-espresso/40">{item.variant}</p>}
+                            </td>
+                            <td className="px-6 py-4"><span className="px-2 py-0.5 text-[10px] font-semibold uppercase rounded-full bg-stone-100 border border-stone-200">{item.category}</span></td>
+                            <td className="px-6 py-4">Rp {item.price.toLocaleString('id-ID')}</td>
+                            <td className="px-6 py-4">{item.stock}</td>
+                            <td className="px-6 py-4">
+                              <button onClick={() => toggleActive(item)} className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${item.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                                {item.is_active ? 'Aktif' : 'Nonaktif'}
+                              </button>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex justify-end gap-2">
+                                <button onClick={() => openEditForm(item)} className="p-1.5 text-espresso/40 hover:text-terracotta bg-stone-100 rounded-md"><Edit size={14} /></button>
+                                <button onClick={() => handleDelete(item.id)} className="p-1.5 text-espresso/40 hover:text-red-500 bg-stone-100 rounded-md"><Trash2 size={14} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile cards */}
+                  <div className="md:hidden divide-y divide-stone-100">
+                    {products.length === 0 ? (
+                      <p className="text-center py-8 text-espresso/40 text-sm">Belum ada produk.</p>
+                    ) : products.map(item => (
+                      <div key={item.id} className={`p-4 ${!item.is_active ? 'opacity-50' : ''}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium text-espresso text-sm">{item.name}</p>
                             {item.variant && <p className="text-xs text-espresso/40">{item.variant}</p>}
-                          </td>
-                          <td className="px-6 py-4"><span className="px-2 py-0.5 text-[10px] font-semibold uppercase rounded-full bg-stone-100 border border-stone-200">{item.category}</span></td>
-                          <td className="px-6 py-4">Rp {item.price.toLocaleString('id-ID')}</td>
-                          <td className="px-6 py-4">{item.stock}</td>
-                          <td className="px-6 py-4">
+                            <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-semibold uppercase rounded-full bg-stone-100 border border-stone-200">{item.category}</span>
+                          </div>
+                          <div className="flex gap-1.5 shrink-0">
+                            <button onClick={() => openEditForm(item)} className="p-1.5 text-espresso/40 hover:text-terracotta bg-stone-100 rounded-md"><Edit size={14} /></button>
+                            <button onClick={() => handleDelete(item.id)} className="p-1.5 text-espresso/40 hover:text-red-500 bg-stone-100 rounded-md"><Trash2 size={14} /></button>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-sm font-semibold text-terracotta">Rp {item.price.toLocaleString('id-ID')}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-espresso/50">Stok: {item.stock}</span>
                             <button onClick={() => toggleActive(item)} className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${item.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
                               {item.is_active ? 'Aktif' : 'Nonaktif'}
                             </button>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex justify-end gap-2">
-                              <button onClick={() => openEditForm(item)} className="p-1.5 text-espresso/40 hover:text-terracotta bg-stone-100 rounded-md"><Edit size={14} /></button>
-                              <button onClick={() => handleDelete(item.id)} className="p-1.5 text-espresso/40 hover:text-red-500 bg-stone-100 rounded-md"><Trash2 size={14} /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -356,7 +398,7 @@ export default function AdminDashboard() {
 
             {/* Settings */}
             {activeTab === 'settings' && (
-              <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl border border-stone-200 p-8 max-w-2xl space-y-5">
+              <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl border border-stone-200 p-5 sm:p-8 max-w-2xl space-y-5">
                 <Field label="Nama Usaha" value={settings.store_name} onChange={v => setSettings({ ...settings, store_name: v })} />
                 <Field label="Deskripsi Singkat" value={settings.description} onChange={v => setSettings({ ...settings, description: v })} textarea />
                 <Field label="Cerita Kami" value={settings.our_story} onChange={v => setSettings({ ...settings, our_story: v })} textarea rows={5} />
